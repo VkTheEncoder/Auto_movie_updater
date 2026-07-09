@@ -50,15 +50,16 @@ def daily_job():
     print(f"[{datetime.now()}] Step 1: Querying TMDB for updates...")
     discovered_movies = tmdb.fetch_trending_and_upcoming_hindi()
     
-    # Store new content strings cleanly inside our tracker
     for movie in discovered_movies:
         db.insert_new_movie(movie["tmdb_id"], movie["title"], movie["release_date"])
         
-    print(f"[{datetime.now()}] Step 2: Extracting items matching priority state constraints...")
-    queue = db.get_priority_queue(limit=POST_LIMIT)
+    print(f"[{datetime.now()}] Step 2: Extracting top 1 priority item for this time slot...")
+    
+    # 🔴 CHANGE HERE: Change limit to 1 so it only sends one post at a time
+    queue = db.get_priority_queue(limit=1) 
     
     if not queue:
-        print("No matches detected in priority queue matrix for today.")
+        print("No matches detected in priority queue matrix for this time slot.")
         return
 
     for target in queue:
@@ -72,13 +73,10 @@ def daily_job():
         success = send_to_telegram(details["poster_url"], caption)
         
         if success:
-            # Shift the database logic column to true based on identity rule flag
             column_triggered = "posted_released" if target["type"] == "RELEASED" else "posted_7_days"
             db.update_post_status(target["tmdb_id"], column_triggered)
             print(f"Success! Database tracker flag '{column_triggered}' updated.")
-        
-        # Avoid flood limits on sudden multiple updates
-        time.sleep(5)
+
 
 # --- DUMMY WEB SERVER TO SATISFY RENDER ---
 class DummyHandler(BaseHTTPRequestHandler):
