@@ -96,14 +96,12 @@ def keep_alive():
 if __name__ == "__main__":
     print("Automation application execution engine initialized safely.")
     
-    # 1. Start the fake web server to keep Render happy
-    keep_alive() 
+    keep_alive() # Your fake web server for Render
     
-    # 2. Setup your scheduler
     scheduler = BlockingScheduler()
-    scheduler.add_job(daily_job, 'cron', hour=9, minute=0)
     
-    daily_job() # Optional immediate run
+    # 🔴 CHANGE HERE: Set the hours to 9 (9 AM), 14 (2 PM), and 18 (6 PM)
+    scheduler.add_job(daily_job, 'cron', hour='9,14,18', minute=0)
     
     try:
         scheduler.start()
