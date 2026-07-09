@@ -4,6 +4,8 @@ from datetime import datetime
 from dotenv import load_dotenv
 from apscheduler.schedulers.blocking import BlockingScheduler
 import requests
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import database as db
 import tmdb_client as tmdb
@@ -78,15 +80,32 @@ def daily_job():
         # Avoid flood limits on sudden multiple updates
         time.sleep(5)
 
+# --- DUMMY WEB SERVER TO SATISFY RENDER ---
+class DummyHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b"Bot is alive and running!")
+
+def keep_alive():
+    # Render assigns a dynamic port via the PORT environment variable
+    port = int(os.environ.get('PORT', 10000))
+    server = HTTPServer(('0.0.0.0', port), DummyHandler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+# ------------------------------------------
+
 if __name__ == "__main__":
     print("Automation application execution engine initialized safely.")
     
-    # Setup scheduler to execute daily at a designated point in time
-    scheduler = BlockingScheduler()
-    scheduler.add_job(daily_job, 'cron', hour=9, minute=0) # Runs daily at 09:00 AM
+    # 1. Start the fake web server to keep Render happy
+    keep_alive() 
     
-    # Optional: Run immediately on launch once to verify everything functions
-    daily_job()
+    # 2. Setup your scheduler
+    scheduler = BlockingScheduler()
+    scheduler.add_job(daily_job, 'cron', hour=9, minute=0)
+    
+    daily_job() # Optional immediate run
     
     try:
         scheduler.start()
