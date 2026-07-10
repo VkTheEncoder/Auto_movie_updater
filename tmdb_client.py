@@ -21,7 +21,7 @@ def fetch_trending_and_upcoming_hindi():
     params = {
         "api_key": TMDB_API_KEY,
         "with_original_language": "hi",
-        "primary_release_date.gte": today - timedelta(days=30),
+        "primary_release_date.gte": today - timedelta(days=365),
         "primary_release_date.lte": future_bound,
         "sort_by": "popularity.desc"
     }
