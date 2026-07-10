@@ -6,6 +6,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 import requests
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import pytz
 
 import database as db
 import tmdb_client as tmdb
@@ -105,9 +106,11 @@ if __name__ == "__main__":
     
     keep_alive() # Your fake web server for Render
     
-    scheduler = BlockingScheduler()
+    # 🔴 CHANGE HERE: Force the scheduler to strictly use Indian Standard Time
+    ist_timezone = pytz.timezone('Asia/Kolkata')
+    scheduler = BlockingScheduler(timezone=ist_timezone)
     
-    # 🔴 CHANGE HERE: Set the hours to 9 (9 AM), 14 (2 PM), and 18 (6 PM)
+    # The cron job will now trigger at 9 AM, 2 PM, and 6 PM IST regardless of the server's clock
     scheduler.add_job(daily_job, 'cron', hour='9,14,18', minute=0)
     
     try:
