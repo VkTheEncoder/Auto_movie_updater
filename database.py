@@ -38,11 +38,12 @@ def update_post_status(tmdb_id, column_to_trigger):
             cur.execute(query, (tmdb_id,))
             conn.commit()
 
-def get_priority_queue(limit=3):
+def get_priority_queue(limit=1):
     """
     Executes the selection priority state machine:
-    Priority 1: Movies releasing today that haven't had a release post.
-    Priority 2: Movies releasing in exactly 7 days that haven't had a warning post.
+    Priority 1: Movies releasing in exactly 7 days.
+    Priority 2: Movies releasing today.
+    Priority 3: Older released movies, sorted descending (newest first).
     """
     today = datetime.now().date()
     seven_days_out = today + timedelta(days=7)
@@ -50,20 +51,38 @@ def get_priority_queue(limit=3):
 
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            # 1. Release Day Priority
+            # 1. 7 Days Out Priority (Highest)
             cur.execute(
-                "SELECT * FROM movie_posts WHERE release_date <= %s AND posted_released = FALSE LIMIT %s;",
-                (today, limit)
+                "SELECT * FROM movie_posts WHERE release_date = %s AND posted_7_days = FALSE LIMIT %s;",
+                (seven_days_out, limit)
+            )
+            selected_posts.extend([{**row, 'type': 'COMING_SOON'} for row in cur.fetchall()])
+            
+            if len(selected_posts) == limit: 
+                return selected_posts
+
+            # 2. Release Day Priority
+            slots_left = limit - len(selected_posts)
+            cur.execute(
+                "SELECT * FROM movie_posts WHERE release_date = %s AND posted_released = FALSE LIMIT %s;",
+                (today, slots_left)
             )
             selected_posts.extend([{**row, 'type': 'RELEASED'} for row in cur.fetchall()])
             
-            # 2. 7 Days Out Priority (If empty slots remain)
+            if len(selected_posts) == limit: 
+                return selected_posts
+
+            # 3. Fallback: Old movies not yet posted (Descending Order)
             slots_left = limit - len(selected_posts)
-            if slots_left > 0:
-                cur.execute(
-                    "SELECT * FROM movie_posts WHERE release_date = %s AND posted_7_days = FALSE LIMIT %s;",
-                    (seven_days_out, slots_left)
-                )
-                selected_posts.extend([{**row, 'type': 'COMING_SOON'} for row in cur.fetchall()])
+            cur.execute(
+                """
+                SELECT * FROM movie_posts 
+                WHERE release_date < %s AND posted_released = FALSE 
+                ORDER BY release_date DESC 
+                LIMIT %s;
+                """,
+                (today, slots_left)
+            )
+            selected_posts.extend([{**row, 'type': 'RELEASED'} for row in cur.fetchall()])
                 
     return selected_posts
