@@ -78,9 +78,16 @@ def daily_job():
             print(f"Success! Database tracker flag '{column_triggered}' updated.")
 
 
-# --- DUMMY WEB SERVER TO SATISFY RENDER ---
+# --- DUMMY WEB SERVER TO SATISFY RENDER & UPTIMEROBOT ---
 class DummyHandler(BaseHTTPRequestHandler):
+    def do_HEAD(self):
+        # This answers UptimeRobot's ping successfully
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+
     def do_GET(self):
+        # This answers normal web browser visits
         self.send_response(200)
         self.send_header('Content-type', 'text/plain')
         self.end_headers()
