@@ -22,12 +22,13 @@ def build_caption(details, post_type):
     
     caption = (
         f"{header}\n\n"
-        f"🎥 **Movie Name:** {details['title']}\n"
+        f"🎥 **Name:** {details['title']}\n"
         f"📅 **Release Year:** {details['year']}\n"
         f"🎭 **Genre:** {details['genres']}\n"
         f"🌟 **Rating:** {details['rating']}\n"
         f"🌐 **Language:** Hindi Dubbed / Audio\n\n"
-        f"📝 **Summary:**\n{details['summary']}"
+        f"📝 **Summary:**\n{details['summary']}\n\n"
+        f"**Download Link :- [Search](https://t.me/movie_request_group_033)**"
     )
     return caption
 
