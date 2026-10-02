@@ -73,6 +73,18 @@ def get_movie_details(tmdb_id):
     
     try:
         data = requests.get(url, params=params).json()
+        
+        # --- NEW CODE: STRICT HINDI DUB CHECK ---
+        spoken_langs = [lang.get("iso_639_1") for lang in data.get("spoken_languages", [])]
+        if "hi" not in spoken_langs:
+            return None # Rejects the content if official Hindi audio is missing
+        
+        # OPTIONAL: If you want to hard-ban ALL Anime, Donghua, and K-Dramas entirely:
+        # original_lang = data.get("original_language", "")
+        # if original_lang in ["ja", "zh", "cn", "ko"]:
+        #     return None 
+        # ----------------------------------------
+
         genres = [g["name"] for g in data.get("genres", [])]
         
         # Handle the naming differences between TV and Movies APIs
