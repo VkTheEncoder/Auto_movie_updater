@@ -66,8 +66,15 @@ def daily_job():
 
     for target in queue:
         details = tmdb.get_movie_details(target["tmdb_id"])
+        
+        # --- NEW CODE: QUEUE CLEARING LOGIC ---
+        # If the item is rejected (Not Hindi) or has no poster, mark it as completed so it never loops again
         if not details or not details["poster_url"]:
+            print(f"Skipping {target['title']} (Not officially Hindi dubbed or missing poster). Removing from queue.")
+            column_triggered = "posted_released" if target["type"] == "RELEASED" else "posted_7_days"
+            db.update_post_status(target["tmdb_id"], column_triggered)
             continue
+        # --------------------------------------
             
         caption = build_caption(details, target["type"])
         
