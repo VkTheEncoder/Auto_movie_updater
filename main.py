@@ -55,10 +55,11 @@ def daily_job():
     for movie in discovered_movies:
         db.insert_new_movie(movie["tmdb_id"], movie["title"], movie["release_date"])
         
-    print(f"[{datetime.now()}] Step 2: Extracting top 1 priority item for this time slot...")
+    print(f"[{datetime.now()}] Step 2: Searching database queue for 1 valid Hindi post...")
     
-    # Fetch 10 items just in case the first few are Anime/rejected
-    queue = db.get_priority_queue(limit=20) 
+    # 🔴 CHANGE HERE: Fetch a massive batch to ensure it bypasses any huge clusters of Anime in the database. 
+    # (Don't worry, TMDB won't rate limit this because it processes sequentially)
+    queue = db.get_priority_queue(limit=200) 
     
     if not queue:
         print("No matches detected in priority queue matrix for this time slot.")
@@ -67,13 +68,13 @@ def daily_job():
     posted_count = 0
 
     for target in queue:
-        # Stop looping if we already successfully posted 1 item this session
+        # Stop looping once exactly 1 Hindi movie has been posted to Telegram
         if posted_count >= 1:
             break
 
         details = tmdb.get_movie_details(target["tmdb_id"])
         
-        # If rejected (Not Hindi or no poster), clear it from DB and check the NEXT item
+        # If rejected (Not Hindi or no poster), clear it from DB and immediately check the NEXT item
         if not details or not details["poster_url"]:
             print(f"Skipping {target['title']} (Not Hindi/No Poster). Removing from queue.")
             column_triggered = "posted_released" if target["type"] == "RELEASED" else "posted_7_days"
@@ -89,7 +90,9 @@ def daily_job():
             column_triggered = "posted_released" if target["type"] == "RELEASED" else "posted_7_days"
             db.update_post_status(target["tmdb_id"], column_triggered)
             print(f"Success! Database tracker flag '{column_triggered}' updated.")
-            posted_count += 1 # Registers the successful post so the loop stops
+            
+            # Registers the successful post so the loop stops and doesn't spam your channel
+            posted_count += 1
 
 
 # --- DUMMY WEB SERVER TO SATISFY RENDER & UPTIMEROBOT ---
