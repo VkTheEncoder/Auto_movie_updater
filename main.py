@@ -55,44 +55,29 @@ def daily_job():
     for movie in discovered_movies:
         db.insert_new_movie(movie["tmdb_id"], movie["title"], movie["release_date"])
         
-    print(f"[{datetime.now()}] Step 2: Searching database queue for 1 valid Hindi post...")
+    print(f"[{datetime.now()}] Step 2: Extracting top 1 priority item for this time slot...")
     
-    # 🔴 CHANGE HERE: Fetch a massive batch to ensure it bypasses any huge clusters of Anime in the database. 
-    # (Don't worry, TMDB won't rate limit this because it processes sequentially)
-    queue = db.get_priority_queue(limit=200) 
+    # 🔴 CHANGE HERE: Change limit to 1 so it only sends one post at a time
+    queue = db.get_priority_queue(limit=1) 
     
     if not queue:
         print("No matches detected in priority queue matrix for this time slot.")
         return
 
-    posted_count = 0
-
     for target in queue:
-        # Stop looping once exactly 1 Hindi movie has been posted to Telegram
-        if posted_count >= 1:
-            break
-
         details = tmdb.get_movie_details(target["tmdb_id"])
-        
-        # If rejected (Not Hindi or no poster), clear it from DB and immediately check the NEXT item
         if not details or not details["poster_url"]:
-            print(f"Skipping {target['title']} (Not Hindi/No Poster). Removing from queue.")
-            column_triggered = "posted_released" if target["type"] == "RELEASED" else "posted_7_days"
-            db.update_post_status(target["tmdb_id"], column_triggered)
-            continue 
+            continue
             
         caption = build_caption(details, target["type"])
-        print(f"Sending message block for: {target['title']} ({target['type']})")
         
+        print(f"Sending message block for: {target['title']} ({target['type']})")
         success = send_to_telegram(details["poster_url"], caption)
         
         if success:
             column_triggered = "posted_released" if target["type"] == "RELEASED" else "posted_7_days"
             db.update_post_status(target["tmdb_id"], column_triggered)
             print(f"Success! Database tracker flag '{column_triggered}' updated.")
-            
-            # Registers the successful post so the loop stops and doesn't spam your channel
-            posted_count += 1
 
 
 # --- DUMMY WEB SERVER TO SATISFY RENDER & UPTIMEROBOT ---
