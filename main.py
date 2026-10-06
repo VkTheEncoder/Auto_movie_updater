@@ -78,7 +78,7 @@ def daily_job():
     print(f"[{datetime.now()}] Step 2: Extracting top 1 priority item for this time slot...")
     
     # 🔴 CHANGE HERE: Change limit to 1 so it only sends one post at a time
-        print(
+    print(
         f"[{datetime.now()}] Step 2: "
         "Searching queue for one valid movie..."
     )
