@@ -30,12 +30,21 @@ def insert_new_movie(tmdb_id, title, release_date):
             )
             conn.commit()
 
-def update_post_status(tmdb_id, column_to_trigger):
-    """Marks either the 7-day alert or the final release post as completed."""
+def reject_movie(tmdb_id, reason):
+    """Marks an invalid candidate separately from an actually posted movie."""
+
     with get_db_connection() as conn:
         with conn.cursor() as cur:
-            query = f"UPDATE movie_posts SET {column_to_trigger} = TRUE WHERE tmdb_id = %s;"
-            cur.execute(query, (tmdb_id,))
+            cur.execute(
+                """
+                UPDATE movie_posts
+                SET rejected = TRUE,
+                    rejected_reason = %s
+                WHERE tmdb_id = %s;
+                """,
+                (reason, tmdb_id)
+            )
+
             conn.commit()
 
 def get_priority_queue(limit=1):
@@ -53,7 +62,7 @@ def get_priority_queue(limit=1):
         with conn.cursor() as cur:
             # 1. 7 Days Out Priority (Highest)
             cur.execute(
-                "SELECT * FROM movie_posts WHERE release_date = %s AND posted_7_days = FALSE LIMIT %s;",
+                "SELECT * FROM movie_posts WHERE release_date = %s AND posted_7_days = FALSE AND rejected = FALSE LIMIT %s;",
                 (seven_days_out, limit)
             )
             selected_posts.extend([{**row, 'type': 'COMING_SOON'} for row in cur.fetchall()])
@@ -64,7 +73,7 @@ def get_priority_queue(limit=1):
             # 2. Release Day Priority
             slots_left = limit - len(selected_posts)
             cur.execute(
-                "SELECT * FROM movie_posts WHERE release_date = %s AND posted_released = FALSE LIMIT %s;",
+                "SELECT * FROM movie_posts WHERE release_date = %s AND posted_released = FALSE AND rejected = FALSE LIMIT %s;",
                 (today, slots_left)
             )
             selected_posts.extend([{**row, 'type': 'RELEASED'} for row in cur.fetchall()])
@@ -77,7 +86,9 @@ def get_priority_queue(limit=1):
             cur.execute(
                 """
                 SELECT * FROM movie_posts 
-                WHERE release_date < %s AND posted_released = FALSE 
+                WHERE release_date < %s
+                AND posted_released = FALSE
+                AND rejected = FALSE
                 ORDER BY release_date DESC 
                 LIMIT %s;
                 """,
