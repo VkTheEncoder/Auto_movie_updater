@@ -160,11 +160,6 @@ if __name__ == "__main__":
         minute=0
     )
 
-    # TEMPORARY TEST: this runs one job immediately after each deploy.
-    # Remove these two lines after confirming the bot works correctly.
-    print("Running one startup test...")
-    daily_job()
-
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
