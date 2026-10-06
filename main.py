@@ -232,17 +232,32 @@ def keep_alive():
 # ------------------------------------------
 
 if __name__ == "__main__":
-    print("Automation application execution engine initialized safely.")
-    
-    keep_alive() # Your fake web server for Render
-    
-    # 🔴 CHANGE HERE: Force the scheduler to strictly use Indian Standard Time
-    ist_timezone = pytz.timezone('Asia/Kolkata')
-    scheduler = BlockingScheduler(timezone=ist_timezone)
-    
-    # The cron job will now trigger at 9 AM, 2 PM, and 6 PM IST regardless of the server's clock
-    scheduler.add_job(daily_job, 'cron', hour='9,14,18', minute=0)
-    
+    print(
+        "Automation application execution engine "
+        "initialized safely."
+    )
+
+    keep_alive()
+
+    ist_timezone = pytz.timezone(
+        'Asia/Kolkata'
+    )
+
+    scheduler = BlockingScheduler(
+        timezone=ist_timezone
+    )
+
+    scheduler.add_job(
+        daily_job,
+        'cron',
+        hour='9,14,18',
+        minute=0
+    )
+
+    # TEMPORARY TEST
+    print("Running one startup test...")
+    daily_job()
+
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
