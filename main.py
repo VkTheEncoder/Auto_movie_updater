@@ -33,19 +33,39 @@ def build_caption(details, post_type):
     return caption
 
 def send_to_telegram(photo_url, caption):
-    """Dispatches the complete image and formatted caption directly to the channel via Telegram API."""
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+    url = (
+        f"https://api.telegram.org/"
+        f"bot{BOT_TOKEN}/sendPhoto"
+    )
+
     payload = {
         "chat_id": CHANNEL_ID,
         "photo": photo_url,
         "caption": caption,
         "parse_mode": "Markdown"
     }
+
     try:
-        res = requests.post(url, json=payload)
-        return res.status_code == 200
+        res = requests.post(
+            url,
+            json=payload,
+            timeout=30
+        )
+
+        if res.status_code != 200:
+            print(
+                f"Telegram API failed "
+                f"[{res.status_code}]: "
+                f"{res.text}"
+            )
+            return False
+
+        return True
+
     except Exception as e:
-        print(f"Failed to cleanly broadcast message package to API stack: {e}")
+        print(
+            f"Telegram request failed: {e}"
+        )
         return False
 
 def daily_job():
@@ -58,7 +78,116 @@ def daily_job():
     print(f"[{datetime.now()}] Step 2: Extracting top 1 priority item for this time slot...")
     
     # 🔴 CHANGE HERE: Change limit to 1 so it only sends one post at a time
-    queue = db.get_priority_queue(limit=1) 
+        print(
+        f"[{datetime.now()}] Step 2: "
+        "Searching queue for one valid movie..."
+    )
+
+    queue = db.get_priority_queue(limit=50)
+
+    if not queue:
+        print("No pending candidate found.")
+        return
+
+
+    for target in queue:
+
+        print(
+            f"Checking candidate: "
+            f"{target['title']} "
+            f"(TMDB {target['tmdb_id']})"
+        )
+
+        details = tmdb.get_movie_details(
+            target["tmdb_id"]
+        )
+
+        # IMPORTANT:
+        # API failure should NOT modify database status
+        if details is None:
+            print(
+                f"Temporary metadata/API failure for "
+                f"{target['title']}. Leaving it pending."
+            )
+            continue
+
+        # Real rejection
+        if details.get("rejected"):
+            reason = details.get(
+                "reason",
+                "unknown"
+            )
+
+            print(
+                f"Rejecting {target['title']}: "
+                f"{reason}"
+            )
+
+            db.reject_movie(
+                target["tmdb_id"],
+                reason
+            )
+
+            continue
+
+        # Missing poster
+        if not details.get("poster_url"):
+
+            print(
+                f"Rejecting {target['title']}: "
+                "missing poster"
+            )
+
+            db.reject_movie(
+                target["tmdb_id"],
+                "missing_poster"
+            )
+
+            continue
+
+
+        caption = build_caption(
+            details,
+            target["type"]
+        )
+
+        print(
+            f"Sending Telegram post: "
+            f"{target['title']}"
+        )
+
+        success = send_to_telegram(
+            details["poster_url"],
+            caption
+        )
+
+        if success:
+
+            column_triggered = (
+                "posted_released"
+                if target["type"] == "RELEASED"
+                else "posted_7_days"
+            )
+
+            db.update_post_status(
+                target["tmdb_id"],
+                column_triggered
+            )
+
+            print(
+                f"SUCCESS: {target['title']}"
+            )
+
+            # VERY IMPORTANT:
+            # only one post per scheduled run
+            break
+
+        else:
+            print(
+                f"Telegram send failed for "
+                f"{target['title']}. "
+                "Database status NOT changed."
+            )
     
     if not queue:
         print("No matches detected in priority queue matrix for this time slot.")
