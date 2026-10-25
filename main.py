@@ -159,6 +159,8 @@ if __name__ == "__main__":
         hour="9,14,18",
         minute=0
     )
+    print("Running one startup test...")
+    daily_job()
 
     try:
         scheduler.start()
