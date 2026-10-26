@@ -21,40 +21,60 @@ def fetch_trending_and_upcoming_hindi():
 
     movie_url = f"{BASE_URL}/discover/movie"
 
+    # TMDB ranks movies by popularity. Fetching only page 1 eventually
+    # leaves the Neon queue empty once popular movies have been posted.
     movie_params = {
         "api_key": TMDB_API_KEY,
         "primary_release_date.gte": str(past_bound),
         "primary_release_date.lte": str(future_bound),
         "sort_by": "popularity.desc",
         "without_genres": "16",
-        "include_adult": "false",
-        "page": 1
+        "include_adult": "false"
     }
 
-    try:
-        res = requests.get(
-            movie_url,
-            params=movie_params,
-            timeout=20
-        )
+    seen_ids = set()
+    max_pages = 5  # Fetch pages 1–5, not just page 1.
+    successful_pages = 0
 
-        res.raise_for_status()
-        response = res.json()
+    for page in range(1, max_pages + 1):
+        try:
+            res = requests.get(
+                movie_url,
+                params={**movie_params, "page": page},
+                timeout=20
+            )
+            res.raise_for_status()
+            response = res.json()
+            successful_pages += 1
 
-        for item in response.get("results", []):
-            release_date = item.get("release_date")
+            results = response.get("results", [])
+            print(f"TMDB discovery: page {page} returned {len(results)} movies")
 
-            if not release_date:
-                continue
+            for item in results:
+                release_date = item.get("release_date")
+                tmdb_id = item.get("id")
 
-            content.append({
-                "tmdb_id": item["id"],
-                "title": item.get("title", "Unknown"),
-                "release_date": release_date
-            })
+                if not release_date or tmdb_id is None or tmdb_id in seen_ids:
+                    continue
 
-    except Exception as e:
-        print(f"Error extracting Movies from TMDB: {e}")
+                seen_ids.add(tmdb_id)
+                content.append({
+                    "tmdb_id": tmdb_id,
+                    "title": item.get("title", "Unknown"),
+                    "release_date": release_date
+                })
+
+            # Stop if there are no more movies or the API's last page is reached.
+            if not results or page >= response.get("total_pages", max_pages):
+                break
+
+        except Exception as e:
+            print(f"Error extracting Movies from TMDB on page {page}: {e}")
+            # Keep movies fetched from earlier pages, if any.
+            break
+
+    print(f"TMDB discovery complete: {len(content)} unique movies from "
+          f"{successful_pages} page(s)")
 
     return content
 
